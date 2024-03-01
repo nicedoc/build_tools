@@ -57,7 +57,14 @@ def install_deps():
   if (nodejs_cur < 16000):
     print("Node.js version cannot be less 16")
     print("Reinstall")
-    base.run_as_bat(["curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash - &&sudo apt-get install -y nodejs"])    
+    if (base.is_dir("./node_js_setup_14.x")):
+      base.delete_dir("./node_js_setup_14.x")
+    base.cmd("sudo", ["apt-get", "remove", "--purge", "-y", "nodejs", "libnode72"])
+    base.download("https://deb.nodesource.com/setup_14.x", "./node_js_setup_14.x")
+    base.cmd('curl -fsSL https://deb.nodesource.com/gpgkey/nodesource.gpg.key | sudo apt-key add -')
+    base.cmd("sudo", ["bash", "./node_js_setup_14.x"])
+    base.cmd("sudo", ["apt-get", "install", "-y", "nodejs"])
+    base.cmd("sudo", ["npm", "install", "-g", "npm@6"])
   else:
     print("OK")
     base.cmd("sudo", ["apt-get", "-y", "install", "npm", "yarn"], True)
