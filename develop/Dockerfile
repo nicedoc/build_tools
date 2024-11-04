@@ -1,4 +1,4 @@
-FROM onlyoffice/documentserver:latest
+FROM registry.nicedoc.cn/nicedoc-documentserver:ruby
 RUN apt-get update -y && \ 
 	apt-get install git -y \
 			python3 -y \

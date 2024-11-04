@@ -73,6 +73,7 @@ def make():
     use_v8_89 = False
 
   if (use_v8_89):
+    print("v8_89")
     v8_89.make()
     return
 

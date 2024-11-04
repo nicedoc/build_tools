@@ -6,6 +6,7 @@ import config
 import base
 import os
 import subprocess
+import shutil
 
 def change_bootstrap():
   base.move_file("./depot_tools/bootstrap/manifest.txt", "./depot_tools/bootstrap/manifest.txt.bak")
@@ -34,6 +35,7 @@ def make_args(args, platform, is_64=True, is_debug=False):
     args_copy.append("v8_target_cpu=\\\"x86\\\"")
 
   if (platform == "linux_arm64"):
+    print("is arm 64")
     args_copy = args[:]
     args_copy.append("target_cpu=\\\"arm64\\\"")
     args_copy.append("v8_target_cpu=\\\"arm64\\\"")
@@ -148,13 +150,48 @@ def make():
              "v8_monolithic=true",
              "v8_use_external_startup_data=false",
              "use_custom_libcxx=false",
-             "treat_warnings_as_errors=false"]
+             "treat_warnings_as_errors=false",
+             "v8_enable_pointer_compression=true",
+             "v8_enable_31bit_smis_on_64bit_arch=true"
+  ]
 
-  if config.check_option("platform", "linux_64"):
+  print("check arm64")
+  if os.uname()[len(os.uname())-1] == "aarch64":
+    print("arm64 custom gn")
+    gn_args.append("clang_base_path=\\\"/usr/\\\"")
+    gn_args.append("clang_use_chrome_plugins=false")
+   
+    print(os.environ) 
+    os.system("build/linux/sysroot_scripts/install-sysroot.py --arch=arm64")
+    #base.cmd("python", ["build/linux/sysroot_scripts/install-sysroot.py", "--arch=arm64"], False)
+   
+    print("clone customnin")
+    base.cmd("git", ["clone", "https://github.com/ninja-build/ninja.git", "-b", "v1.8.2", "customnin"], False)
+    os.chdir("customnin")
+    base.cmd("./configure.py", ["--bootstrap"])
+    os.chdir("../")
+    base.cmd("cp", ["-v", "customnin/ninja", "/bin/ninja"])
+    base.cmd("rm", ["-v", "/core/Common/3dParty/v8_89/depot_tools/ninja"])
+    shutil.rmtree("customnin")
+    
+    base.cmd("git", ["clone", "https://gn.googlesource.com/gn", "customgn"], False)
+    os.chdir("customgn")
+    base.cmd("git", ["checkout", "23d22bcaa71666e872a31fd3ec363727f305417e"], False)
+    base.cmd("sed", ["-i", "-e", "\"s/-Wl,--icf=all//\"", "build/gen.py"], False)
+    base.cmd("python", ["build/gen.py"], False)
+    base.cmd("ninja", ["-C", "out"])
+    os.chdir("../")
+    base.cmd("cp", ["./customgn/out/gn", "./buildtools/linux64/gn"])
+    shutil.rmtree("customgn")
+    
+    base.cmd2("gn", ["gen", "out.gn/linux_arm64", make_args(gn_args, "linux_arm64", False)])
+    base.cmd("ninja", ["-C", "out.gn/linux_arm64"]) # hack
+
+  elif config.check_option("platform", "linux_64"):
     base.cmd2("gn", ["gen", "out.gn/linux_64", make_args(gn_args, "linux")])
     base.cmd("ninja", ["-C", "out.gn/linux_64"])
 
-  if config.check_option("platform", "linux_32"):
+  elif config.check_option("platform", "linux_32"):
     base.cmd2("gn", ["gen", "out.gn/linux_32", make_args(gn_args, "linux", False)])
     base.cmd("ninja", ["-C", "out.gn/linux_32"])
 

@@ -1723,6 +1723,7 @@ def check_module_version(actual_version, clear_func):
   return
 
 def check_python():
+  return
   if ("linux" != host_platform()):
     return
   directory = __file__script__path__ + "/../tools/linux"

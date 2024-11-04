@@ -29,6 +29,10 @@ def check_android_ndk_macos_arm(dir):
     base.copy_dir(dir + "/darwin-x86_64", dir + "/darwin-arm64")
   return
 
+def do_make(m):
+  m.make()
+  print("... end\n")
+
 
 def make():
   if (config.check_option("platform", "android")) and (base.host_platform() == "mac") and (base.is_os_arm()):
@@ -36,17 +40,9 @@ def make():
       if base.is_dir(toolchain):
         check_android_ndk_macos_arm(toolchain + "/prebuilt")
 
-  boost.make()
-  cef.make()
-  icu.make()
-  openssl.make()
-  v8.make()
-  html2.make()
-  hunspell.make(False)
-  harfbuzz.make()
-  glew.make()
-  hyphen.make()
-  googletest.make()
+  ms = [boost, cef, icu, openssl, v8, html2, hunspell, harfbuzz, glew, hyphen, googletest]
+  for m in ms:
+     do_make(m)
 
   if config.check_option("build-libvlc", "1"):
     libvlc.make()
