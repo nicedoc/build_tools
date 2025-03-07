@@ -3,8 +3,6 @@ FROM ubuntu:22.04
 # 国内镜像源和系统更新/安装
 RUN sed -i 's/archive.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list && \
     sed -i 's/security.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list && \
-    # 安装 Node.js
-    curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && \
     apt-get update && \
     # 避免安装过程中的交互操作
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -25,6 +23,9 @@ RUN sed -i 's/archive.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list &&
     libtool \
     curl \
     sudo \
+    libgtk-3-dev \
+    libxkbcommon-dev \
+    libxkbcommon-x11-dev \
     libssl-dev \
     libcurl4-openssl-dev \
     libxml2-dev \
@@ -58,9 +59,11 @@ RUN sed -i 's/archive.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list &&
     ttf-mscorefonts-installer \
     fonts-dejavu \
     fonts-liberation \
-    openjdk-11-jdk \
-    nodejs \
-    npm && \
+    openjdk-11-jdk && \
+    # 安装 Node.js
+    curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && \
+    apt-get update && \
+    apt-get install -y nodejs && \
     # 清理 apt 缓存
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
