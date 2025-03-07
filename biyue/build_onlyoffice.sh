@@ -17,6 +17,13 @@ DOCKER_SERVER_DIR="$ONLYOFFICE_ROOT/Docker-DocumentServer"
 DOC_SERVER_PACKAGE_DIR="$ONLYOFFICE_ROOT/document-server-package"
 EXAMPLE_DIR="/opt/onlyoffice/"
 
+# Docker镜像仓库配置
+REGISTRY_HOST="registry.nicedoc.cn"
+REGISTRY2_HOST="registry.cn-shenzhen.aliyuncs.com/biyue"
+REGISTRY_IMAGE="nicedoc-documentserver"
+REGISTRY_URL="$REGISTRY_HOST/$REGISTRY_IMAGE"
+REGISTRY2_URL="$REGISTRY2_HOST/$REGISTRY_IMAGE"
+
 # 全局变量定义
 BUILD_VERSION=""
 PRODUCT_VERSION=""
@@ -130,13 +137,15 @@ build_docker_image() {
     cp "$DOC_SERVER_PACKAGE_DIR/deb/"*.deb ./
     
     DOCKER_TAG=$BUILD_VERSION-$BUILD_NUMBER
-    docker build . -t nicedoc-documentserver:$DOCKER_TAG \
+    docker build . -t $REGISTRY_IMAGE:$DOCKER_TAG \
         --build-arg PACKAGE_VERSION=$BUILD_VERSION-$BUILD_NUMBER
-    docker tag nicedoc-documentserver:$DOCKER_TAG nicedoc-documentserver:latest
+    docker tag $REGISTRY_IMAGE:$DOCKER_TAG $REGISTRY_IMAGE:latest
     
     # 标记镜像并推送到私有仓库
-    docker tag nicedoc-documentserver registry.nicedoc.cn/nicedoc-documentserver
-    docker tag nicedoc-documentserver:$DOCKER_TAG registry.nicedoc.cn/nicedoc-documentserver:$DOCKER_TAG
+    docker tag $REGISTRY_IMAGE $REGISTRY_URL
+    docker tag $REGISTRY_IMAGE:$DOCKER_TAG $REGISTRY_URL:$DOCKER_TAG
+    docker tag $REGISTRY_IMAGE $REGISTRY2_URL
+    docker tag $REGISTRY_IMAGE:$DOCKER_TAG $REGISTRY2_URL:$DOCKER_TAG
     
     local end_time=$(date +%s)
     local time_taken=$((end_time - start_time))
@@ -153,8 +162,8 @@ push_to_registry() {
     sleep 10
     docker exec onlyoffice sudo supervisorctl start ds:example
     sleep 10
-    docker push registry.nicedoc.cn/nicedoc-documentserver:latest
-    docker push registry.nicedoc.cn/nicedoc-documentserver:$DOCKER_TAG
+    docker push $REGISTRY_URL:latest
+    docker push $REGISTRY_URL:$DOCKER_TAG
     
     local end_time=$(date +%s)
     local time_taken=$((end_time - start_time))
