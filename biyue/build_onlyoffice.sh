@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 设置错误时退出
+# 设置错误时退出，但在push_to_registry函数中临时禁用
 set -e
 
 # 记录开始时间
@@ -18,7 +18,7 @@ DOC_SERVER_PACKAGE_DIR="$ONLYOFFICE_ROOT/document-server-package"
 EXAMPLE_DIR="/opt/onlyoffice/"
 
 # Docker镜像仓库配置
-REGISTRY_HOST="reg-internal.xmdas-link.com/edu-dev"
+REGISTRY_HOST="reg-internal.xmdas-link.com/oo"
 REGISTRY2_HOST="registry.cn-shenzhen.aliyuncs.com/biyue"
 REGISTRY_IMAGE="nicedoc-documentserver"
 REGISTRY_URL="$REGISTRY_HOST/$REGISTRY_IMAGE"
@@ -219,7 +219,7 @@ build_docker_image() {
 
 # 7. 启动注册表服务并推送镜像
 push_to_registry() {
-    log_summary "开始推送镜像到私有仓库..."
+    log_summary "开始启动本地演示服务并推送镜像到私有仓库..."
     local start_time=$(date +%s)
     
     cd "$EXAMPLE_DIR"
@@ -231,13 +231,29 @@ push_to_registry() {
     log_summary "启动 onlyoffice 服务"
     
     sleep 10
-    docker push $REGISTRY_URL:latest
-    docker push $REGISTRY_URL:$DOCKER_TAG
+    
+    # 临时禁用错误退出
+    set +e
+    
+    # 推送镜像
+    if ! docker push $REGISTRY_URL:latest; then
+        log_summary "警告: 推送镜像 $REGISTRY_URL:latest 失败，请稍后手动推送"
+    else
+        log_summary "成功推送镜像 $REGISTRY_URL:latest"
+    fi
 
+    if ! docker push $REGISTRY_URL:$DOCKER_TAG; then
+        log_summary "警告: 推送镜像 $REGISTRY_URL:$DOCKER_TAG 失败，请稍后手动推送"
+    else
+        log_summary "成功推送镜像 $REGISTRY_URL:$DOCKER_TAG"
+    fi
+    
+    # 重新启用错误退出
+    set -e
     
     local end_time=$(date +%s)
     local time_taken=$((end_time - start_time))
-    log_summary "镜像推送完成，耗时: $time_taken 秒"
+    log_summary "镜像推送流程完成，耗时: $time_taken 秒"
 }
 
 # 主流程
