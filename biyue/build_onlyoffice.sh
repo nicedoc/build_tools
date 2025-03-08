@@ -29,6 +29,13 @@ BUILD_VERSION=""
 PRODUCT_VERSION=""
 BUILD_NUMBER=""
 
+# 添加日志相关配置
+LOG_DIR="/var/log/onlyoffice/build"
+LOG_FILE="$LOG_DIR/build_$(date +%Y%m%d_%H%M%S).log"
+SUMMARY_LOG="$LOG_DIR/build_summary_$(date +%Y%m%d_%H%M%S).log"
+CURRENT_SUMMARY_LINK="$LOG_DIR/current_build_summary.log"
+CURRENT_LOG_LINK="$LOG_DIR/current_build.log"
+
 # 计算执行时间的函数
 calculate_time() {
     local end_time=$(date +%s)
@@ -39,44 +46,89 @@ calculate_time() {
     echo "总执行时间: ${hours}小时 ${minutes}分钟 ${seconds}秒"
 }
 
+# 初始化日志目录和文件
+init_logging() {
+    # 确保日志目录存在并有正确的权限
+    sudo mkdir -p "$LOG_DIR"
+    sudo chmod 755 "$LOG_DIR"
+    sudo chown $(whoami):$(whoami) "$LOG_DIR"
+    
+    touch "$LOG_FILE"
+    touch "$SUMMARY_LOG"
+    
+    # 更新软链接指向最新的日志文件
+    ln -sf "$LOG_FILE" "$CURRENT_LOG_LINK"
+    ln -sf "$SUMMARY_LOG" "$CURRENT_SUMMARY_LINK"
+    
+    # 同时将日志输出到文件和终端
+    exec 1> >(tee -a "$LOG_FILE")
+    exec 2> >(tee -a "$LOG_FILE" >&2)
+}
+
+# 记录重要信息到摘要日志
+log_summary() {
+    local message="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    echo "$message" | tee -a "$SUMMARY_LOG"
+    # 确保消息能立即写入文件
+    sync
+}
+
+# 清理旧日志文件
+cleanup_old_logs() {
+    # 保留最近7天的日志
+    find "$LOG_DIR" -name "build_*.log" -mtime +7 -delete
+    find "$LOG_DIR" -name "build_summary_*.log" -mtime +7 -delete
+}
+
 # 1. 更新代码
 update_code() {
-    echo "正在更新代码..."
+    log_summary "开始更新代码..."
     cd "$CORE_DIR" && git pull
     cd "$SDKJS_DIR" && git pull
     cd "$WEB_APPS_DIR" && git pull
     cd "$GITHUB_IO_DIR" && git pull
     cd "$ONLYOFFICE_ROOT"
+    log_summary "代码更新完成"
 }
 
 # 2. 设置版本信息
 setup_version() {
-    echo "设置版本信息..."
-    # 增加构建号
-    sed -E 's/([0-9]+)/echo "$((\1+1))"|bc/e' build_number | sponge build_number
+    log_summary "开始设置版本信息..."
     
-    # 设置全局变量
-    BUILD_VERSION=$(cat version)
-    PRODUCT_VERSION=$BUILD_VERSION
-    BUILD_NUMBER=$(cat build_number)
-    
-    # 导出环境变量，确保子进程可以访问
-    export BUILD_VERSION
-    export PRODUCT_VERSION
-    export BUILD_NUMBER
-    
-    echo "当前版本: $BUILD_VERSION"
-    echo "构建号: $BUILD_NUMBER"
+    # 检查是否通过环境变量传入版本信息
+    if [ -n "$BUILD_VERSION" ] && [ -n "$BUILD_NUMBER" ]; then
+        log_summary "使用 Jenkins 传入的版本信息:"
+        log_summary "BUILD_VERSION: $BUILD_VERSION"
+        log_summary "BUILD_NUMBER: $BUILD_NUMBER"
+        PRODUCT_VERSION=$BUILD_VERSION
+    else
+        log_summary "使用本地版本信息:"
+        # 增加构建号
+        sed -E 's/([0-9]+)/echo "$((\1+1))"|bc/e' build_number | sponge build_number
+        
+        # 设置全局变量
+        BUILD_VERSION=$(cat version)
+        PRODUCT_VERSION=$BUILD_VERSION
+        BUILD_NUMBER=$(cat build_number)
+        
+        # 导出环境变量，确保子进程可以访问
+        export BUILD_VERSION
+        export PRODUCT_VERSION
+        export BUILD_NUMBER
+        
+        log_summary "本地 BUILD_VERSION: $BUILD_VERSION"
+        log_summary "本地 BUILD_NUMBER: $BUILD_NUMBER"
+    fi
 }
 
 # 3. 编译服务
 compile_service() {
-    echo "开始编译服务..."
+    log_summary "开始编译服务..."
     local start_time=$(date +%s)
     
     # 添加参数判断是否为debug模式
     if [ "$1" = "debug" ]; then
-        echo "使用debug模式编译..."
+        log_summary "使用debug模式编译..."
         docker run --rm \
             -e BUILD_MODULES= \
             -e BUILD_VERSION=$BUILD_VERSION \
@@ -97,21 +149,22 @@ compile_service() {
     
     local end_time=$(date +%s)
     local time_taken=$((end_time - start_time))
-    echo "编译服务耗时: $time_taken 秒"
+    log_summary "编译服务完成，耗时: $time_taken 秒"
 }
 
 # 4. 处理编译后的文件
 post_compile() {
-    echo "处理编译后的文件..."
+    log_summary "开始处理编译后的文件..."
     local api_dir="$BUILD_TOOLS_DIR/out/linux_64/onlyoffice/documentserver/web-apps/apps/api/documents"
     cd "$api_dir"
     cp api.js.tpl api.js
     cd "$ONLYOFFICE_ROOT"
+    log_summary "编译后文件处理完成"
 }
 
 # 5. 打包 deb 包
 build_deb() {
-    echo "打包 deb 包..."
+    log_summary "开始打包 deb 包..."
     local start_time=$(date +%s)
     
     docker run --rm \
@@ -125,18 +178,20 @@ build_deb() {
     
     local end_time=$(date +%s)
     local time_taken=$((end_time - start_time))
-    echo "打包 deb 耗时: $time_taken 秒"
+    log_summary "deb 包打包完成，耗时: $time_taken 秒"
 }
 
 # 6. 构建 Docker 镜像
 build_docker_image() {
-    echo "构建 Docker 镜像..."
+    log_summary "开始构建 Docker 镜像..."
     local start_time=$(date +%s)
     
     cd "$DOCKER_SERVER_DIR"
     cp "$DOC_SERVER_PACKAGE_DIR/deb/"*.deb ./
     
     DOCKER_TAG=$BUILD_VERSION-$BUILD_NUMBER
+    log_summary "构建镜像标签: $DOCKER_TAG"
+    
     docker build . -t $REGISTRY_IMAGE:$DOCKER_TAG \
         --build-arg PACKAGE_VERSION=$BUILD_VERSION-$BUILD_NUMBER
     docker tag $REGISTRY_IMAGE:$DOCKER_TAG $REGISTRY_IMAGE:latest
@@ -149,38 +204,68 @@ build_docker_image() {
     
     local end_time=$(date +%s)
     local time_taken=$((end_time - start_time))
-    echo "构建 Docker 镜像耗时: $time_taken 秒"
+    log_summary "Docker 镜像构建完成，耗时: $time_taken 秒"
 }
 
 # 7. 启动注册表服务并推送镜像
 push_to_registry() {
-    echo "推送镜像到私有仓库..."
+    log_summary "开始推送镜像到私有仓库..."
     local start_time=$(date +%s)
     
     cd "$EXAMPLE_DIR"
     docker-compose --project-directory "$EXAMPLE_DIR" up -d
+    log_summary "启动 docker-compose 服务"
+    
     sleep 10
     docker exec onlyoffice sudo supervisorctl start ds:example
+    log_summary "启动 onlyoffice 服务"
+    
     sleep 10
     docker push $REGISTRY_URL:latest
     docker push $REGISTRY_URL:$DOCKER_TAG
+
     
     local end_time=$(date +%s)
     local time_taken=$((end_time - start_time))
-    echo "推送镜像耗时: $time_taken 秒"
+    log_summary "镜像推送完成，耗时: $time_taken 秒"
 }
 
 # 主流程
 main() {
-    echo "开始 ONLYOFFICE 编译打包流程..."
-    echo "开始时间: $(date '+%Y-%m-%d %H:%M:%S')"
+    cleanup_old_logs
+    init_logging
+    
+    log_summary "==============================================="
+    log_summary "开始 ONLYOFFICE 编译打包流程..."
+    log_summary "构建机器: $(hostname)"
+    log_summary "构建用户: $(whoami)"
+    log_summary "开始时间: $(date '+%Y-%m-%d %H:%M:%S')"
     
     # 检查命令行参数
     BUILD_TYPE="release"
-    if [ "$1" = "debug" ]; then
-        BUILD_TYPE="debug"
-        echo "使用debug模式编译"
-    fi
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            debug)
+                BUILD_TYPE="debug"
+                log_summary "使用debug模式编译"
+                ;;
+            --build-version=*)
+                BUILD_VERSION="${1#*=}"
+                export BUILD_VERSION
+                ;;
+            --build-number=*)
+                BUILD_NUMBER="${1#*=}"
+                export BUILD_NUMBER
+                ;;
+            *)
+                log_summary "未知参数: $1"
+                exit 1
+                ;;
+        esac
+        shift
+    done
+    
+    log_summary "构建类型: $BUILD_TYPE"
     
     update_code
     setup_version
@@ -190,9 +275,10 @@ main() {
     build_docker_image
     push_to_registry
     
-    echo "ONLYOFFICE 编译打包流程完成！"
-    echo "结束时间: $(date '+%Y-%m-%d %H:%M:%S')"
-    calculate_time
+    log_summary "==============================================="
+    log_summary "ONLYOFFICE 编译打包流程完成！"
+    log_summary "结束时间: $(date '+%Y-%m-%d %H:%M:%S')"
+    calculate_time | tee -a "$SUMMARY_LOG"
 }
 
 # 执行主流程
