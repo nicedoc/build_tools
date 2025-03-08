@@ -75,9 +75,19 @@ log_summary() {
 
 # 清理旧日志文件
 cleanup_old_logs() {
+    # 确保日志目录存在
+    if [ ! -d "$LOG_DIR" ]; then
+        sudo mkdir -p "$LOG_DIR"
+        sudo chmod 755 "$LOG_DIR"
+        sudo chown $(whoami):$(whoami) "$LOG_DIR"
+        log_summary "创建日志目录: $LOG_DIR"
+        return 0
+    fi
+    
     # 保留最近7天的日志
-    find "$LOG_DIR" -name "build_*.log" -mtime +7 -delete
-    find "$LOG_DIR" -name "build_summary_*.log" -mtime +7 -delete
+    find "$LOG_DIR" -name "build_*.log" -mtime +7 -delete 2>/dev/null || true
+    find "$LOG_DIR" -name "build_summary_*.log" -mtime +7 -delete 2>/dev/null || true
+    log_summary "清理7天前的日志文件"
 }
 
 # 1. 更新代码
