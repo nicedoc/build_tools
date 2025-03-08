@@ -18,7 +18,7 @@ DOC_SERVER_PACKAGE_DIR="$ONLYOFFICE_ROOT/document-server-package"
 EXAMPLE_DIR="/opt/onlyoffice/"
 
 # Docker镜像仓库配置
-REGISTRY_HOST="registry.nicedoc.cn"
+REGISTRY_HOST="reg-internal.xmdas-link.com/edu-dev"
 REGISTRY2_HOST="registry.cn-shenzhen.aliyuncs.com/biyue"
 REGISTRY_IMAGE="nicedoc-documentserver"
 REGISTRY_URL="$REGISTRY_HOST/$REGISTRY_IMAGE"
