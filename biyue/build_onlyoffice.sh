@@ -202,9 +202,25 @@ build_docker_image() {
     DOCKER_TAG=$BUILD_VERSION-$BUILD_NUMBER
     log_summary "构建镜像标签: $DOCKER_TAG"
     
+    # 构建新镜像
     docker build . -t $REGISTRY_IMAGE:$DOCKER_TAG \
         --build-arg PACKAGE_VERSION=$BUILD_VERSION-$BUILD_NUMBER
+        
+    # 删除旧的latest标签镜像
+    docker rmi $REGISTRY_IMAGE:latest || true
+    docker rmi $REGISTRY_URL:latest || true
+    docker rmi $REGISTRY2_URL:latest || true
+    
+    # 标记新镜像
     docker tag $REGISTRY_IMAGE:$DOCKER_TAG $REGISTRY_IMAGE:latest
+    
+    # 删除旧版本镜像（保留最新的3个版本）
+    for registry in "$REGISTRY_IMAGE" "$REGISTRY_URL" "$REGISTRY2_URL"; do
+        old_tags=$(docker images "$registry" --format "{{.Tag}}" | grep -v "latest" | sort -V | head -n -3)
+        for tag in $old_tags; do
+            docker rmi "$registry:$tag" || true
+        done
+    done
     
     # 标记镜像并推送到私有仓库
     docker tag $REGISTRY_IMAGE $REGISTRY_URL
