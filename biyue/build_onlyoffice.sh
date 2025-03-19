@@ -93,9 +93,13 @@ cleanup_old_logs() {
 # 1. 更新代码
 update_code() {
     log_summary "开始更新代码..."
+    echo "当前更新的目录: $CORE_DIR"
     cd "$CORE_DIR" && git pull
+    echo "当前更新的目录: $SDKJS_DIR"
     cd "$SDKJS_DIR" && git pull
+    echo "当前更新的目录: $WEB_APPS_DIR"
     cd "$WEB_APPS_DIR" && git pull
+    echo "当前更新的目录: $GITHUB_IO_DIR"
     cd "$GITHUB_IO_DIR" && git pull
     cd "$ONLYOFFICE_ROOT"
     log_summary "代码更新完成"
