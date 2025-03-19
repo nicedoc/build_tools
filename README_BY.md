@@ -4,9 +4,10 @@
 
 ## 整体步骤
 1. 构建编译环境镜像
-2. 编译服务
-3. 打包 deb 包
-4. 打包 docker 镜像
+2. 检出源码
+3. 编译服务
+4. 打包 deb 包
+5. 打包 docker 镜像
 
 ## 详细步骤说明
 
@@ -15,10 +16,48 @@
 编译环境使用 Ubuntu 22.04 作为基础镜像，包含了所有必要的编译依赖。使用以下命令构建：
 
 ```bash
+# vim /onlyoffice/onlyoffice-document-builder.sh
 docker build -f Dockerfile_compile -t onlyoffice-document-builder .
 ```
 
-### 2. 编译服务
+### 2. 检出源码
+- build_tools  
+```git clone --depth=1 -b stable https://github.com/nicedoc/build_tools.git ```
+- core  
+```git clone --depth=1 -b stable https://github.com/nicedoc/core.git ```
+- core-fonts  
+```git clone --depth=1 -b master https://github.com/ONLYOFFICE/core-fonts ```
+- desktop-apps  
+```git clone --depth=1 -b master https://github.com/ONLYOFFICE/desktop-apps.git ```
+- desktop-sdk  
+```git clone --depth=1 -b master https://github.com/ONLYOFFICE/desktop-sdk ```
+- dictionaries  
+```git clone --depth=1 -b master https://github.com/ONLYOFFICE/dictionaries ```
+- Docker-DocumentServer  
+```git clone --depth=1 -b master https://github.com/nicedoc/Docker-DocumentServer.git ```
+- DocumentBuilder  
+```git clone --depth=1 -b master https://github.com/nicedoc/DocumentBuilder ```
+- document-server-integration  
+```git clone --depth=1 -b master https://github.com/nicedoc/document-server-integration.git ```
+- document-server-package  
+```git clone --depth=1 -b master https://github.com/ONLYOFFICE/document-server-package.git ```
+- document-templates  
+```git clone --depth=1 -b master https://github.com/ONLYOFFICE/document-templates ```
+- onlyoffice.github.io  
+```git clone --depth=1 -b master https://github.com/nicedoc/onlyoffice.github.io.git ```
+- sdkjs  
+```git clone --depth=1 -b stable https://github.com/nicedoc/sdkjs.git ```
+- sdkjs-forms  
+```git clone --depth=1 -b master https://github.com/nicedoc/sdkjs-forms.git ```
+- sdkjs-plugins  
+```git clone --depth=1 -b master https://github.com/nicedoc/sdkjs-plugins.git ```
+- server  
+```git clone --depth=1 -b stable https://github.com/nicedoc/server.git ```
+- web-apps  
+```git clone --depth=1 -b stable https://github.com/nicedoc/web-apps.git ```
+
+
+### 3. 编译服务
 
 使用编译环境镜像进行编译：
 
@@ -90,7 +129,7 @@ c) hunspell 库修改：
 
 需要将biyue字体放在 `/onlyoffice/core-fonts/` 
 
-### 3. 打包 deb 包
+### 4. 打包 deb 包
 
 使用以下命令将编译好的服务打包成 deb 包：
 
@@ -117,7 +156,7 @@ cp api.js.tpl api.js
 ```
 
 
-### 4. 打包 docker 镜像
+### 5. 打包 docker 镜像
 
 将生成的 deb 包打包成最终的 docker 镜像：
 
